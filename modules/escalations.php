@@ -130,41 +130,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if(!$stmt->execute()) die("Insert failed: ".$stmt->error);
         $activity = "Added escalation: AR=$ar_number, Serial=$serial_number, Type=$type";
     }
+// ===============================
+// ROLE-BASED AUTO CHAT NOTIFICATION
+// ===============================
+$escalation_id = $stmt->insert_id ?: $edit_id;
 
-// AUTO CHAT NOTIFICATION (appears at bottom in dashboard chat)
-$escalation_id = $stmt->insert_id;
-$notification_msg = "New escalation (#$escalation_id) added by ".htmlspecialchars($userData['name']).": AR=$ar_number, Serial=$serial_number, Type=$type";
+$notification_msg = "New escalation (#$escalation_id) added by "
+    . htmlspecialchars($userData['name']) .
+    ": AR=$ar_number, Serial=$serial_number, Type=$type";
 
-// Get the uploaded file from escalation
-$uploadedFileName = $_FILES['escalation_file']['error'] === UPLOAD_ERR_OK 
-    ? time().'_'.basename($_FILES['escalation_file']['name']) 
-    : ($attachment ?? null); // fallback to attachment column if file already saved
+// Determine receivers based on role
+if($role === 'user') {
 
-// Fetch all active admins
-$adminQuery = $conn->query("SELECT id FROM users WHERE role IN ('admin','super_admin') AND status='active'");
-while($admin = $adminQuery->fetch_assoc()){
-    $receiver_id = $admin['id'];
-    if($receiver_id == $user_id) continue; // don't notify the creator
-
-    $chatStmt = $conn->prepare("
-        INSERT INTO chats (sender_id, receiver_id, message, file_path, created_at, status, is_read) 
-        VALUES (?,?,?,?,?,?,?)
+    // USER → Notify ADMIN of same site
+    $notifyStmt = $conn->prepare("
+        SELECT id FROM users 
+        WHERE role='admin' 
+        AND site=? 
+        AND status='active'
     ");
-    $status = 'sent';
-    $is_read = 0;
-    $now = date('Y-m-d H:i:s');
+    $notifyStmt->bind_param("s", $site);
+    $notifyStmt->execute();
+    $receivers = $notifyStmt->get_result();
 
-    $chatStmt->bind_param(
-        "iissssi", 
-        $user_id, 
-        $receiver_id, 
-        $notification_msg, 
-        $uploadedFileName, 
-        $now, 
-        $status, 
-        $is_read
-    );
-    $chatStmt->execute();
+} elseif($role === 'admin') {
+
+    // ADMIN → Notify SUPER_ADMIN (all)
+    $notifyStmt = $conn->prepare("
+        SELECT id FROM users 
+        WHERE role='super_admin' 
+        AND status='active'
+    ");
+    $notifyStmt->execute();
+    $receivers = $notifyStmt->get_result();
+
+} else {
+    $receivers = null;
+}
+
+// Send chat notification
+if($receivers){
+    while($admin = $receivers->fetch_assoc()){
+
+        $receiver_id = $admin['id'];
+
+        if($receiver_id == $user_id) continue;
+
+        $chatStmt = $conn->prepare("
+            INSERT INTO chats 
+            (sender_id, receiver_id, message, file_path, created_at, status, is_read)
+            VALUES (?,?,?,?,?,?,?)
+        ");
+
+        $statusChat = 'sent';
+        $is_read = 0;
+        $now = date('Y-m-d H:i:s');
+
+        $chatStmt->bind_param(
+            "iissssi",
+            $user_id,
+            $receiver_id,
+            $notification_msg,
+            $attachment, // reuse uploaded file if any
+            $now,
+            $statusChat,
+            $is_read
+        );
+
+        $chatStmt->execute();
+    }
 }
 
 
