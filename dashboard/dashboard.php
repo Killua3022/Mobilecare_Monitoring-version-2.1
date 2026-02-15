@@ -233,6 +233,13 @@ function loadMessages(){
         }
     });
 }
+// Send message on Enter key
+chatInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault(); // Prevent new line
+        sendMessage.click(); // Trigger the send button
+    }
+});
 
 
 // Send message

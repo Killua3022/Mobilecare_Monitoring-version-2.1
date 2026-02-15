@@ -2,6 +2,8 @@
 session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+date_default_timezone_set('Asia/Manila');
+
 require '../config/database.php';
 
 if(!isset($_SESSION['user_id'])){
@@ -55,7 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $css_response = $_POST['css_response'] ?? '';
     $remarks = $_POST['remarks'] ?? '';
     $status = $_POST['status'] ?? 'Open';
-    $type = $_POST['escalation_type'] ?? (($role==='admin') ? 'Reso' : 'Normal');
+    $type = $_POST['type'] ?? 'Normal';
+
+
     $approval_status = ($role==='super_admin' || $role==='admin') ? ($_POST['approval_status'] ?? 'Pending') : 'Pending';
 
     // Handle file upload
@@ -86,7 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if(!$attachment) $attachment = $escData['attachment'];
     }
 
-    if($edit_id > 0 && $type !== 'Reso') {
+    if($edit_id > 0) {
+
         if($attachment){
             $stmt = $conn->prepare("
                 UPDATE escalations SET 
@@ -490,7 +495,7 @@ switch($row['approval_status']){
 <h2 class="text-xl font-semibold mb-4" id="modalTitle">Add Escalation</h2>
 <form method="POST" id="escalationForm" enctype="multipart/form-data" onsubmit="showLoading()" class="space-y-4">
 <input type="hidden" name="edit_id" id="edit_id">
-<input type="hidden" name="escalation_type" id="escalation_type" value="Normal">
+
 <input type="text" name="site" id="site" value="<?= htmlspecialchars($site) ?>" class="w-full border p-2 rounded bg-gray-200" readonly>
 
 <div>
@@ -581,7 +586,7 @@ function showLoading() {
 function openModal() {
     document.getElementById('escalationForm').reset();
     document.getElementById('edit_id').value='';
-    document.getElementById('escalation_type').value='Normal';
+    document.getElementById('type').value='Normal'; // fixed ID
     document.getElementById('modalTitle').innerText='Add Escalation';
     document.getElementById('submitBtn').innerText='Save';
     const approvalWrapper = document.getElementById('approvalWrapper');
@@ -589,6 +594,7 @@ function openModal() {
     document.getElementById('escalationModal').classList.remove('hidden');
     document.getElementById('escalationModal').classList.add('flex');
 }
+
 
 // CLOSE MODAL
 function closeModal() {
@@ -657,7 +663,8 @@ function makeReso(id){
     document.getElementById('remarks').value=row.dataset.remarks;
     document.getElementById('status').value='Open';
     document.getElementById('type').value='Reso';
-    document.getElementById('escalation_type').value='Reso';
+
+
     document.getElementById('modalTitle').innerText='Create Reso Escalation';
     document.getElementById('submitBtn').innerText='Save Reso';
     const approvalWrapper=document.getElementById('approvalWrapper');
