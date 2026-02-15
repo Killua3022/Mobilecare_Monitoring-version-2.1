@@ -119,8 +119,15 @@ if($role==='user'){
                     $users_query = $conn->query("SELECT id,name,role FROM users WHERE id!=$current_id AND status='active'");
                 }
                 while($u = $users_query->fetch_assoc()){
-                    echo "<option value='{$u['id']}'>".htmlspecialchars($u['name'])." (".htmlspecialchars($u['role']).")</option>";
-                }
+    // Count unread messages from this user
+    $uid = $u['id'];
+    $unreadRes = $conn->query("SELECT COUNT(*) AS unread FROM chats WHERE sender_id=$uid AND receiver_id=$user_id AND is_read=0");
+    $unreadCount = $unreadRes->fetch_assoc()['unread'] ?? 0;
+
+    $badge = $unreadCount > 0 ? "  You have unread message(s): $unreadCount": '';
+    echo "<option value='{$u['id']}'>".htmlspecialchars($u['name'])." (".htmlspecialchars($u['role']).")$badge</option>";
+}
+
                 ?>
             </select>
         </div>
@@ -168,42 +175,65 @@ chatUser.addEventListener('change', ()=>{
         chatInput.disabled=false; sendMessage.disabled=false;
         loadMessages();
         clearInterval(chatInterval);
-        chatInterval=setInterval(loadMessages,2000);
+        chatInterval=setInterval(loadMessages,3600);
     } else {
         chatInput.disabled=true; sendMessage.disabled=true;
         chatMessages.innerHTML='<p class="text-gray-400 text-center">Select a user to start chatting</p>';
     }
 });
-
-// Load messages from chat_actions.php
 function loadMessages(){
     if(!selectedUser) return;
-    fetch('chat_actions.php?action=get_messages&user_id='+selectedUser)
-    .then(res=>res.json())
-    .then(data=>{
-        chatMessages.innerHTML=''; let unread=0;
-        data.forEach(msg=>{
-            const div=document.createElement('div'); div.classList.add('p-2','rounded','max-w-[70%]');
-            const timestamp=`<div class="text-xs text-gray-400 mt-1">${msg.created_at}</div>`;
-            let status='';
-            if(msg.sender_id==<?= $user_id ?>){
-                div.classList.add('bg-blue-100','ml-auto','text-right');
-                status=`<span class="text-xs text-gray-500 ml-1">${msg.status}</span>`;
+
+    // Check if user is at bottom before loading new messages
+    const atBottom = chatMessages.scrollHeight - chatMessages.scrollTop <= chatMessages.clientHeight + 5;
+
+    fetch('chat_actions.php?action=get_messages&user_id=' + selectedUser)
+    .then(res => res.json())
+    .then(data => {
+        chatMessages.innerHTML = '';
+        let unread = 0;
+
+        // Sort messages by created_at ascending just in case
+        data.sort((a,b) => new Date(a.created_at) - new Date(b.created_at));
+
+        data.forEach(msg => {
+            const div = document.createElement('div');
+            div.classList.add('p-2', 'rounded', 'max-w-[70%]');
+            const timestamp = `<div class="text-xs text-gray-400 mt-1">${msg.created_at}</div>`;
+            let status = '';
+
+            if(msg.sender_id == <?= $user_id ?>){
+                div.classList.add('bg-blue-100', 'ml-auto', 'text-right');
+                status = `<span class="text-xs text-gray-500 ml-1">${msg.status}</span>`;
             } else {
-                div.classList.add('bg-gray-200','mr-auto','text-left');
-                if(msg.is_read==0) unread++;
+                div.classList.add('bg-gray-200', 'mr-auto', 'text-left');
+                if(msg.is_read == 0) unread++;
             }
-            let content=msg.message ? msg.message : '';
-            if(msg.file_path) content+=`<br><a href="uploads/${msg.file_path}" target="_blank" class="text-blue-600 underline">Download File</a>`;
-            div.innerHTML=content+timestamp+status;
-            chatMessages.appendChild(div);
+
+            let content = msg.message ? msg.message : '';
+            if(msg.file_path){
+                content += `<br><a href="uploads/${msg.file_path}" target="_blank" class="text-blue-600 underline">Download File</a>`;
+            }
+
+            div.innerHTML = content + timestamp + status;
+            chatMessages.appendChild(div); // oldest → newest
         });
-        chatMessages.scrollTop=chatMessages.scrollHeight;
+
+        // Scroll to bottom only if user was at the bottom
+        if(atBottom){
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
         // Update badge
-        if(unread>0){ chatBadge.innerText=unread; chatBadge.classList.remove('hidden'); }
-        else chatBadge.classList.add('hidden');
+        if(unread > 0){
+            chatBadge.innerText = unread;
+            chatBadge.classList.remove('hidden');
+        } else {
+            chatBadge.classList.add('hidden');
+        }
     });
 }
+
 
 // Send message
 sendMessage.addEventListener('click', ()=>{

@@ -7,9 +7,16 @@ require '../config/database.php';
 $role = $_SESSION['role'] ?? 'user';
 $user_id = $_SESSION['user_id'] ?? 0;
 
-// Default profile image
-$profile_img = '../assets/images/default_avatar.png';
+$profile_img = '../assets/default_avatar.jpg'; // default
 
+// Fetch user profile image if exists
+$stmt = $conn->prepare("SELECT profile_image FROM users WHERE id=?");
+$stmt->bind_param("i", $user_id);
+$stmt->execute();
+$res = $stmt->get_result()->fetch_assoc();
+if(!empty($res['profile_image']) && file_exists("../uploads/profiles/" . $res['profile_image'])){
+    $profile_img = "../uploads/profiles/" . $res['profile_image'];
+}
 // Array to hold notifications
 $notifications = [];
 $notifCount = 0;

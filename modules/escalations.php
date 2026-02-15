@@ -131,6 +131,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $activity = "Added escalation: AR=$ar_number, Serial=$serial_number, Type=$type";
     }
 
+// AUTO CHAT NOTIFICATION (appears at bottom in dashboard chat)
+$escalation_id = $stmt->insert_id;
+$notification_msg = "New escalation (#$escalation_id) added by ".htmlspecialchars($userData['name']).": AR=$ar_number, Serial=$serial_number, Type=$type";
+
+// Get the uploaded file from escalation
+$uploadedFileName = $_FILES['escalation_file']['error'] === UPLOAD_ERR_OK 
+    ? time().'_'.basename($_FILES['escalation_file']['name']) 
+    : ($attachment ?? null); // fallback to attachment column if file already saved
+
+// Fetch all active admins
+$adminQuery = $conn->query("SELECT id FROM users WHERE role IN ('admin','super_admin') AND status='active'");
+while($admin = $adminQuery->fetch_assoc()){
+    $receiver_id = $admin['id'];
+    if($receiver_id == $user_id) continue; // don't notify the creator
+
+    $chatStmt = $conn->prepare("
+        INSERT INTO chats (sender_id, receiver_id, message, file_path, created_at, status, is_read) 
+        VALUES (?,?,?,?,?,?,?)
+    ");
+    $status = 'sent';
+    $is_read = 0;
+    $now = date('Y-m-d H:i:s');
+
+    $chatStmt->bind_param(
+        "iissssi", 
+        $user_id, 
+        $receiver_id, 
+        $notification_msg, 
+        $uploadedFileName, 
+        $now, 
+        $status, 
+        $is_read
+    );
+    $chatStmt->execute();
+}
+
+
+
+
     // Log activity
     $module = 'Escalation';
     $log = $conn->prepare("INSERT INTO activity_logs(user_id,module,action,site) VALUES (?,?,?,?)");
