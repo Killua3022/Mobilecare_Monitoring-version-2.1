@@ -140,6 +140,10 @@ $unavailableEng = array_filter($engineers, fn($e)=>$e['status']!=='active');
 <head>
 <meta charset="UTF-8">
 <title>Engineer Endorsement</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon_io/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon_io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon_io/favicon-16x16.png">
+
 <script src="https://cdn.tailwindcss.com"></script>
 <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 <style>

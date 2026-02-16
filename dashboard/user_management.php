@@ -12,7 +12,7 @@ if($role !== 'admin' && $role !== 'super_admin'){
     die("Access Denied: You do not have permission to view this page.");
 }
 
-$error = "";
+$errors = []; // Store all errors
 
 // List of sites
 $sites = [
@@ -37,18 +37,18 @@ if(isset($_POST['update_user'])){
     $status_update = $_POST['status'];
     $site_update = $_POST['site'];
 
-    // Check for site admin uniqueness
+    // Check for admin limit (max 3 per site)
     if($role_update === 'admin'){
-        $stmt_check = $conn->prepare("SELECT * FROM users WHERE role='admin' AND site=? AND id!=?");
-        $stmt_check->bind_param("si",$site_update,$user_id);
+        $stmt_check = $conn->prepare("SELECT COUNT(*) as admin_count FROM users WHERE role='admin' AND site=? AND id!=?");
+        $stmt_check->bind_param("si", $site_update, $user_id);
         $stmt_check->execute();
-        $existing = $stmt_check->get_result()->fetch_assoc();
-        if($existing){
-            $error = "The site '$site_update' already has an admin!";
+        $admin_count = $stmt_check->get_result()->fetch_assoc()['admin_count'] ?? 0;
+        if($admin_count >= 3){
+            $errors[] = "The site '$site_update' already has 3 admins. Cannot assign more.";
         }
     }
 
-    if(empty($error)){
+    if(empty($errors)){
         $stmt = $conn->prepare("UPDATE users SET name=?, email=?, role=?, status=?, site=? WHERE id=?");
         $stmt->bind_param("sssssi",$name,$email,$role_update,$status_update,$site_update,$user_id);
         $stmt->execute();
@@ -65,7 +65,7 @@ if(isset($_POST['delete_user'])){
     $stmt->execute();
     $data = $stmt->get_result()->fetch_assoc();
     if($data['role'] === 'super_admin'){
-        $error = "Cannot delete super admin.";
+        $errors[] = "Cannot delete super admin.";
     } else {
         $stmt = $conn->prepare("DELETE FROM users WHERE id=?");
         $stmt->bind_param("i",$user_id);
@@ -87,11 +87,30 @@ if(isset($_POST['bulk_update']) && !empty($_POST['selected_users'])){
         $params = [];
         $types = '';
 
+        // Handle role update
         if($bulk_role){
+            if($bulk_role === 'admin'){
+                // Get user's site
+                $site_result = $conn->query("SELECT site FROM users WHERE id=$user_id");
+                $user_site = $site_result->fetch_assoc()['site'] ?? '';
+
+                // Count current admins excluding this user
+                $stmt_count = $conn->prepare("SELECT COUNT(*) as admin_count FROM users WHERE role='admin' AND site=? AND id!=?");
+                $stmt_count->bind_param("si", $user_site, $user_id);
+                $stmt_count->execute();
+                $admin_count = $stmt_count->get_result()->fetch_assoc()['admin_count'] ?? 0;
+
+                if($admin_count >= 3){
+                    $errors[] = "User ID $user_id skipped: Site '$user_site' already has 3 admins.";
+                    continue; // Skip updating this user
+                }
+            }
             $update_fields[] = "role=?";
             $params[] = $bulk_role;
             $types .= 's';
         }
+
+        // Handle status update
         if($bulk_status){
             $update_fields[] = "status=?";
             $params[] = $bulk_status;
@@ -122,7 +141,6 @@ $total_pages = ceil($total_users / $limit);
 
 // Fetch paginated users
 $users = $conn->query("SELECT * FROM users ORDER BY site ASC, role DESC, name ASC LIMIT $limit OFFSET $offset");
-
 ?>
 
 <!DOCTYPE html>
@@ -130,6 +148,9 @@ $users = $conn->query("SELECT * FROM users ORDER BY site ASC, role DESC, name AS
 <head>
 <meta charset="UTF-8">
 <title>User Management</title>
+<link rel="icon" type="image/x-icon" href="/assets/favicon_io/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon_io/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon_io/favicon-16x16.png">
 <link href="../assets/css/output.css" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -141,8 +162,10 @@ $users = $conn->query("SELECT * FROM users ORDER BY site ASC, role DESC, name AS
 
 <h2 class="text-2xl font-bold mb-4">User Management</h2>
 
-<?php if($error): ?>
-<div class="bg-red-100 text-red-700 p-2 rounded mb-4 text-sm"><?= $error ?></div>
+<?php if(!empty($errors)): ?>
+<div class="bg-red-100 text-red-700 p-2 rounded mb-4 text-sm">
+    <?php foreach($errors as $e) echo $e."<br>"; ?>
+</div>
 <?php endif; ?>
 
 <form method="POST">
