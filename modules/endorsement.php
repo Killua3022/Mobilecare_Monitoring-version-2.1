@@ -7,12 +7,17 @@ if(!isset($_SESSION['user_id'])){
     exit();
 }
 
+// Safe output helper
+function e($value){
+    return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
+}
+
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role']; // admin, super_admin, user
 
 // Get date filters
-$filter_day = $_GET['day'] ?? '';      // format: YYYY-MM-DD
-$filter_month = $_GET['month'] ?? '';  // format: YYYY-MM
+$filter_day = $_GET['day'] ?? '';      // YYYY-MM-DD
+$filter_month = $_GET['month'] ?? '';  // YYYY-MM
 
 // ============================
 // Handle AJAX status update
@@ -31,6 +36,19 @@ if(isset($_POST['ajax']) && $_POST['ajax']==='update_status'){
 }
 
 // ============================
+// Get user site if not super_admin
+// ============================
+if($role !== 'super_admin') {
+    $stmt = $conn->prepare("SELECT site FROM users WHERE id=?");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $siteData = $stmt->get_result()->fetch_assoc();
+    $siteFilter = $siteData['site'] ?? '';
+} else {
+    $siteFilter = null; // super_admin sees all sites
+}
+
+// ============================
 // Product Categories Mapping
 // ============================
 $categoryMap = [
@@ -40,9 +58,17 @@ $categoryMap = [
 ];
 
 // ============================
-// Fetch Engineers
+// Fetch engineers per site
 // ============================
-$engQuery = $conn->query("SELECT id, name, site, status, position FROM users WHERE role='user' AND position='Engineer'");
+if($role === 'super_admin') {
+    $engQuery = $conn->query("SELECT id, name, site, status, position FROM users WHERE role='user' AND position='Engineer'");
+} else {
+    $stmt = $conn->prepare("SELECT id, name, site, status, position FROM users WHERE role='user' AND position='Engineer' AND site=?");
+    $stmt->bind_param("s", $siteFilter);
+    $stmt->execute();
+    $engQuery = $stmt->get_result();
+}
+
 $engineers = [];
 while($row = $engQuery->fetch_assoc()){
     $engineers[$row['id']] = [
@@ -56,7 +82,7 @@ while($row = $engQuery->fetch_assoc()){
 }
 
 // ============================
-// Fetch frontline tally for each engineer
+// Fetch frontline tally per engineer per site
 // ============================
 $dateCondition = "";
 $params = [];
@@ -70,12 +96,19 @@ if($filter_day){
     $params[] = $filter_month;
 }
 
-// Prepare query dynamically
-$frQueryStr = "SELECT engineer, product FROM frontline WHERE type IN ('RECEIVED (APPOINTMENT)','RECEIVED (WALK-IN)') AND engineer IS NOT NULL $dateCondition";
-$stmt = $conn->prepare($frQueryStr);
+// Filter by site if not super_admin
+$siteSQL = '';
+if($role !== 'super_admin' && $siteFilter){
+    $siteSQL = "AND site=?";
+    $params[] = $siteFilter;
+}
 
+// Prepare query
+$frQueryStr = "SELECT engineer, product FROM frontline WHERE type IN ('RECEIVED (APPOINTMENT)','RECEIVED (WALK-IN)') AND engineer IS NOT NULL $dateCondition $siteSQL";
+$stmt = $conn->prepare($frQueryStr);
 if(!empty($params)){
-    $stmt->bind_param("s", $params[0]);
+    $typesStr = str_repeat("s", count($params));
+    $stmt->bind_param($typesStr, ...$params);
 }
 $stmt->execute();
 $frResult = $stmt->get_result();
@@ -96,15 +129,16 @@ while($row = $frResult->fetch_assoc()){
 }
 
 // ============================
-// Separate available and unavailable engineers
+// Separate available/unavailable engineers
 // ============================
 $availableEng = array_filter($engineers, fn($e)=>$e['status']==='active');
 $unavailableEng = array_filter($engineers, fn($e)=>$e['status']!=='active');
-
 ?>
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
 <title>Engineer Endorsement</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
@@ -114,12 +148,14 @@ $unavailableEng = array_filter($engineers, fn($e)=>$e['status']!=='active');
     th { background-color: #f3f4f6; }
     .status-active { color: green; font-weight: bold; }
     .status-inactive { color: red; font-weight: bold; }
+    .btn { padding: 0.25rem 0.5rem; border-radius: 0.25rem; font-size: 0.875rem; cursor: pointer; }
 </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
 <?php include '../layouts/navbar.php'; ?>
 
 <div class="container mx-auto p-6">
+
     <!-- Header -->
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-bold">Engineer Endorsement & Schedule</h1>
@@ -128,8 +164,8 @@ $unavailableEng = array_filter($engineers, fn($e)=>$e['status']!=='active');
 
     <!-- Filters -->
     <form method="GET" class="flex gap-2 mb-4">
-        <input type="date" name="day" value="<?= htmlspecialchars($filter_day) ?>" class="border p-2 rounded">
-        <input type="month" name="month" value="<?= htmlspecialchars($filter_month) ?>" class="border p-2 rounded">
+        <input type="date" name="day" value="<?= e($filter_day) ?>" class="border p-2 rounded">
+        <input type="month" name="month" value="<?= e($filter_month) ?>" class="border p-2 rounded">
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Filter</button>
         <a href="endorsement.php" class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">Reset</a>
     </form>
@@ -154,9 +190,9 @@ $unavailableEng = array_filter($engineers, fn($e)=>$e['status']!=='active');
                 $statusClass = ($eng['status']==='active') ? 'status-active' : 'status-inactive';
             ?>
                 <tr class="hover:bg-gray-50">
-                    <td><?= htmlspecialchars($eng['name']) ?></td>
-                    <td><?= htmlspecialchars($eng['site']) ?></td>
-                    <td class="<?= $statusClass ?>"><?= ucfirst($eng['status']) ?></td>
+                    <td><?= e($eng['name']) ?></td>
+                    <td><?= e($eng['site']) ?></td>
+                    <td class="<?= $statusClass ?>"><?= ucfirst(e($eng['status'])) ?></td>
                     <td class="text-red-600 font-bold"><?= $eng['iPhone'] ?></td>
                     <td class="text-blue-600 font-bold"><?= $eng['MacBook'] ?></td>
                     <td class="text-green-600 font-bold"><?= $eng['iMac'] ?></td>
@@ -167,7 +203,7 @@ $unavailableEng = array_filter($engineers, fn($e)=>$e['status']!=='active');
         </table>
     </div>
 
-    <!-- Engineer Availability Table -->
+    <!-- Engineer Availability -->
     <div class="bg-white shadow rounded-lg overflow-x-auto mb-6">
         <h2 class="text-xl font-semibold p-4 border-b">Engineer Availability</h2>
         <table class="w-full text-sm">
@@ -176,26 +212,26 @@ $unavailableEng = array_filter($engineers, fn($e)=>$e['status']!=='active');
                     <th>Engineer</th>
                     <th>Site</th>
                     <th>Status</th>
-                    <th>Next Available / Action</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
             <?php foreach($engineers as $id => $eng): ?>
                 <tr class="hover:bg-gray-50">
-                    <td><?= htmlspecialchars($eng['name']) ?></td>
-                    <td><?= htmlspecialchars($eng['site']) ?></td>
-                    <td class="<?= ($eng['status']==='active') ? 'status-active' : 'status-inactive' ?>"><?= ucfirst($eng['status']) ?></td>
+                    <td><?= e($eng['name']) ?></td>
+                    <td><?= e($eng['site']) ?></td>
+                    <td class="<?= ($eng['status']==='active') ? 'status-active' : 'status-inactive' ?>"><?= ucfirst(e($eng['status'])) ?></td>
                     <td>
                         <?php if($eng['status']==='active'): ?>
                             <span class="text-green-600 font-semibold">Available</span>
-                            <button class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm status-btn" 
-                                    data-id="<?= $id ?>" data-status="inactive" type="button">
+                            <button class="btn bg-red-600 text-white hover:bg-red-700 status-btn" 
+                                    data-id="<?= $id ?>" data-status="inactive">
                                 <i class='bx bx-user-x'></i> Mark Unavailable
                             </button>
                         <?php else: ?>
                             <span class="text-red-600 font-semibold">Unavailable</span>
-                            <button class="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm status-btn" 
-                                    data-id="<?= $id ?>" data-status="active" type="button">
+                            <button class="btn bg-green-600 text-white hover:bg-green-700 status-btn" 
+                                    data-id="<?= $id ?>" data-status="active">
                                 <i class='bx bx-user-check'></i> Mark Available
                             </button>
                         <?php endif; ?>
@@ -223,7 +259,7 @@ document.querySelectorAll('.status-btn').forEach(btn=>{
         .then(res=>res.json())
         .then(data=>{
             if(data.success){
-                location.reload(); // refresh to show updated availability
+                location.reload();
             } else {
                 alert('Failed to update status.');
             }
