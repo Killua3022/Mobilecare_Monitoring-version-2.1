@@ -303,7 +303,7 @@ th { background-color: #f3f4f6; }
                 <th>Month</th>
                 <th>CSO</th>
                 <th>Site</th>
-                <th>Total AHT</th>
+                <th>Total AHT - minutes</th>
             </tr>
         </thead>
         <tbody>

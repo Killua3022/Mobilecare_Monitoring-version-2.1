@@ -37,7 +37,6 @@ if(isset($_POST['update_user'])){
     $status_update = $_POST['status'];
     $site_update = $_POST['site'];
 
-    // Check for admin limit (max 3 per site)
     if($role_update === 'admin'){
         $stmt_check = $conn->prepare("SELECT COUNT(*) as admin_count FROM users WHERE role='admin' AND site=? AND id!=?");
         $stmt_check->bind_param("si", $site_update, $user_id);
@@ -87,14 +86,10 @@ if(isset($_POST['bulk_update']) && !empty($_POST['selected_users'])){
         $params = [];
         $types = '';
 
-        // Handle role update
         if($bulk_role){
             if($bulk_role === 'admin'){
-                // Get user's site
                 $site_result = $conn->query("SELECT site FROM users WHERE id=$user_id");
                 $user_site = $site_result->fetch_assoc()['site'] ?? '';
-
-                // Count current admins excluding this user
                 $stmt_count = $conn->prepare("SELECT COUNT(*) as admin_count FROM users WHERE role='admin' AND site=? AND id!=?");
                 $stmt_count->bind_param("si", $user_site, $user_id);
                 $stmt_count->execute();
@@ -102,7 +97,7 @@ if(isset($_POST['bulk_update']) && !empty($_POST['selected_users'])){
 
                 if($admin_count >= 3){
                     $errors[] = "User ID $user_id skipped: Site '$user_site' already has 3 admins.";
-                    continue; // Skip updating this user
+                    continue;
                 }
             }
             $update_fields[] = "role=?";
@@ -110,7 +105,6 @@ if(isset($_POST['bulk_update']) && !empty($_POST['selected_users'])){
             $types .= 's';
         }
 
-        // Handle status update
         if($bulk_status){
             $update_fields[] = "status=?";
             $params[] = $bulk_status;
@@ -128,19 +122,37 @@ if(isset($_POST['bulk_update']) && !empty($_POST['selected_users'])){
 }
 
 // ==========================
-// Pagination setup
+// Pagination and search
 // ==========================
-$limit = 10; // users per page
+$limit = 10;
 $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
 // Fetch total users count
-$total_users_result = $conn->query("SELECT COUNT(*) as total FROM users");
-$total_users = $total_users_result->fetch_assoc()['total'];
+$where_sql = "";
+if($search !== ''){
+    $search_like = "%$search%";
+    $where_sql = "WHERE name LIKE ? OR email LIKE ? OR site LIKE ?";
+    $stmt_count = $conn->prepare("SELECT COUNT(*) as total FROM users $where_sql");
+    $stmt_count->bind_param("sss", $search_like, $search_like, $search_like);
+    $stmt_count->execute();
+    $total_users = $stmt_count->get_result()->fetch_assoc()['total'];
+} else {
+    $total_users_result = $conn->query("SELECT COUNT(*) as total FROM users");
+    $total_users = $total_users_result->fetch_assoc()['total'];
+}
 $total_pages = ceil($total_users / $limit);
 
 // Fetch paginated users
-$users = $conn->query("SELECT * FROM users ORDER BY site ASC, role DESC, name ASC LIMIT $limit OFFSET $offset");
+if($search !== ''){
+    $stmt_users = $conn->prepare("SELECT * FROM users $where_sql ORDER BY site ASC, role DESC, name ASC LIMIT ? OFFSET ?");
+    $stmt_users->bind_param("sssii", $search_like, $search_like, $search_like, $limit, $offset);
+    $stmt_users->execute();
+    $users = $stmt_users->get_result();
+} else {
+    $users = $conn->query("SELECT * FROM users ORDER BY site ASC, role DESC, name ASC LIMIT $limit OFFSET $offset");
+}
 ?>
 
 <!DOCTYPE html>
@@ -168,6 +180,13 @@ $users = $conn->query("SELECT * FROM users ORDER BY site ASC, role DESC, name AS
 </div>
 <?php endif; ?>
 
+<!-- Search Form -->
+<form method="GET" class="mb-4 flex space-x-2">
+    <input type="text" name="search" placeholder="Search by name, email, or site" value="<?= htmlspecialchars($search) ?>" class="border p-2 rounded w-full">
+    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded">Search</button>
+    <a href="?page=1" class="bg-gray-400 hover:bg-gray-500 text-white p-2 rounded">Clear</a>
+</form>
+
 <form method="POST">
 <div class="my-4 flex items-center space-x-2">
     <select name="bulk_role" class="border p-1 rounded">
@@ -188,6 +207,7 @@ $users = $conn->query("SELECT * FROM users ORDER BY site ASC, role DESC, name AS
     <button type="submit" name="bulk_update" class="bg-green-600 hover:bg-green-700 text-white p-1 rounded">Update Selected</button>
 </div>
 
+<!-- Table (unchanged) -->
 <table class="w-full border-collapse bg-white shadow rounded overflow-hidden">
     <thead class="bg-gray-200">
         <tr>
@@ -254,7 +274,7 @@ $users = $conn->query("SELECT * FROM users ORDER BY site ASC, role DESC, name AS
 <!-- Pagination -->
 <div class="mt-4 flex justify-center space-x-2">
     <?php for($i=1; $i<=$total_pages; $i++): ?>
-        <a href="?page=<?= $i ?>" class="px-3 py-1 rounded <?= $i==$page?'bg-blue-600 text-white':'bg-gray-200' ?>"><?= $i ?></a>
+        <a href="?page=<?= $i ?>&search=<?= urlencode($search) ?>" class="px-3 py-1 rounded <?= $i==$page?'bg-blue-600 text-white':'bg-gray-200' ?>"><?= $i ?></a>
     <?php endfor; ?>
 </div>
 
