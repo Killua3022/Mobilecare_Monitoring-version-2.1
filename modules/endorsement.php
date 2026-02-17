@@ -1,5 +1,6 @@
 <?php
 session_start();
+date_default_timezone_set('Asia/Manila');
 require '../config/database.php';
 
 if(!isset($_SESSION['user_id'])){
@@ -16,8 +17,10 @@ $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role']; // admin, super_admin, user
 
 // Get date filters
-$filter_day = $_GET['day'] ?? '';      // YYYY-MM-DD
-$filter_month = $_GET['month'] ?? '';  // YYYY-MM
+$filter_day = $_GET['day'] ?? date('Y-m-d');
+    // YYYY-MM-DD
+$filter_month = $_GET['month'] ?? date('Y-m');
+
 
 // ============================
 // Handle AJAX status update
@@ -89,10 +92,14 @@ $params = [];
 $types = ['RECEIVED (APPOINTMENT)','RECEIVED (WALK-IN)'];
 
 if($filter_day){
-    $dateCondition = "AND DATE(start_time) = ?";
+    $dateCondition = "AND created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY)";
     $params[] = $filter_day;
+    $params[] = $filter_day;
+
+
 } elseif($filter_month){
-    $dateCondition = "AND DATE_FORMAT(start_time,'%Y-%m') = ?";
+    $dateCondition = "AND DATE_FORMAT(created_at,'%Y-%m') = ?";
+
     $params[] = $filter_month;
 }
 
