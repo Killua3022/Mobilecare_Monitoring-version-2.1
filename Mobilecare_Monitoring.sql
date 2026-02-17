@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost
--- Generation Time: Feb 15, 2026 at 11:51 AM
+-- Generation Time: Feb 17, 2026 at 03:31 AM
 -- Server version: 10.4.28-MariaDB
 -- PHP Version: 8.0.28
 
@@ -121,6 +121,19 @@ CREATE TABLE `engineer_schedule` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `engineer_tally_adjustments`
+--
+
+CREATE TABLE `engineer_tally_adjustments` (
+  `id` int(11) NOT NULL,
+  `engineer_id` int(11) NOT NULL,
+  `category` enum('iPhone','MacBook','iMac') NOT NULL,
+  `count_value` int(11) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `escalations`
 --
 
@@ -168,6 +181,27 @@ CREATE TABLE `frontline` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `engineer` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `frontline`
+--
+
+INSERT INTO `frontline` (`id`, `site`, `start_time`, `end_time`, `aht`, `type`, `product`, `ar`, `cso`, `serial_number`, `is_deleted`, `created_at`, `updated_at`, `engineer`) VALUES
+(23, 'Marikina', '15:20:19', '15:20:24', '0.08333333333333333', 'RECEIVED (WALK-IN)', 'PORTABLE', '1', 'Super Admin', '1', 0, '2026-02-16 07:20:19', '2026-02-16 07:20:24', NULL),
+(24, 'The Podium', '17:37:28', '17:37:35', '0.11666666666666667', 'RECEIVED (APPOINTMENT)', 'DESKTOP', '1', 'Alexander Losaynon', '1', 0, '2026-02-16 09:37:28', '2026-02-16 09:38:07', 'Jasmil Rose Guban'),
+(25, 'The Podium', '17:58:47', '17:58:57', '0.16666666666666666', 'RELEASED: NTF', 'PORTABLE', '112', 'Alexander Losaynon', '12', 0, '2026-02-16 09:58:47', '2026-02-16 09:58:57', 'Jasmil Rose Guban'),
+(26, 'The Podium', '18:00:25', '18:00:38', '0.21666666666666667', 'RELEASED: NRS', 'PORTABLE', '1', 'Alexander Losaynon', '1', 0, '2026-02-16 10:00:25', '2026-02-16 10:00:38', NULL),
+(27, 'The Podium', '18:01:03', '18:01:05', '0.03333333333333333', 'RECEIVED (APPOINTMENT)', 'PORTABLE', '1', 'Alexander Losaynon', '1', 0, '2026-02-16 10:01:03', '2026-02-16 10:01:05', NULL),
+(28, 'The Podium', '18:01:41', '18:01:45', '0.06666666666666667', 'RECEIVED (WALK-IN)', 'DESKTOP', '1', 'Alexander Losaynon', '1', 0, '2026-02-16 10:01:41', '2026-02-16 10:01:45', 'Jasmil Rose Guban'),
+(29, 'The Podium', '18:01:51', '18:01:53', '0.03333333333333333', 'RELEASED: SAF L1 (APPOINTMENT)', 'DESKTOP', '1', 'Alexander Losaynon', '1', 0, '2026-02-16 10:01:51', '2026-02-16 10:01:53', NULL),
+(30, 'The Podium', '18:01:59', '18:05:13', '3.2333333333333334', 'RELEASED: PULL OUT', 'PORTABLE', '1', 'Alexander Losaynon', '1', 0, '2026-02-16 10:01:59', '2026-02-16 10:05:13', NULL),
+(31, 'The Podium', '18:06:46', '18:06:53', '0.11666666666666667', 'RELEASED: REPLACED', 'SHUFFLE', '1', 'Alexander Losaynon', '1', 0, '2026-02-16 10:06:46', '2026-02-16 10:07:06', NULL),
+(32, 'The Podium', '18:07:22', '18:07:30', '0.13333333333333333', 'RECEIVED (APPOINTMENT)', 'MAC ACCS', '123', 'Alexander Losaynon', '123', 0, '2026-02-16 10:07:22', '2026-02-16 10:41:08', 'Jasmil Rose Guban'),
+(33, 'The Podium', '18:07:37', '18:07:46', '0.15', 'RELEASED: REPLACED', 'PORTABLE', '1', 'Alexander Losaynon', '2', 0, '2026-02-16 10:07:37', '2026-02-16 10:07:46', NULL),
+(34, 'The Podium', '18:41:57', '18:41:58', '0.016666666666666666', 'RECEIVED (APPOINTMENT)', 'PORTABLE', '1', 'Alexander Losaynon', '1', 0, '2026-02-16 10:41:57', '2026-02-16 10:42:16', 'Jasmil Rose Guban'),
+(35, 'The Podium', '18:42:04', '18:42:07', '0.05', 'RECEIVED (WALK-IN)', 'DESKTOP', '1', 'Alexander Losaynon', '1', 0, '2026-02-16 10:42:04', '2026-02-16 10:42:07', 'Jasmil Rose Guban'),
+(36, 'The Podium', '10:15:10', '10:15:12', '0.03333333333333333', 'RECEIVED (WALK-IN)', 'PORTABLE', '1', 'Alexander Losaynon', '1', 0, '2026-02-17 02:15:10', '2026-02-17 02:15:12', 'sample'),
+(37, 'The Podium', '10:15:58', '10:15:59', '0.016666666666666666', 'RECEIVED (WALK-IN)', 'PORTABLE', '1', 'Alexander Losaynon', '1', 0, '2026-02-17 02:15:58', '2026-02-17 02:15:59', 'Jasmil Rose Guban');
 
 -- --------------------------------------------------------
 
@@ -231,7 +265,7 @@ INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `status`, `creat
 (1, 'Super Admin', 'superadmin@test.com', '$2y$10$wgtzc7JG5oWsOSV2bJgcveBS.3f87/X.AJp7yn5RjqohSBxW2y/6C', 'super_admin', 'active', '2026-02-10 02:32:36', 'Marikina', 'Manager', 'user_1_1771069145.jpg'),
 (4, 'Alexander Losaynon', 'alexander.losaynon@mobilecareph.com', '$2y$10$VPihM4ydo5girHjDaUejCeXOHVLEyMxtFa9/Aq7s0ffU1pMxJrSUa', 'user', 'active', '2026-02-10 03:40:07', 'The Podium', 'Customer Service Officer', 'user_4_1771069500.jpg'),
 (9, 'Daphne Bascuguin', 'daphneclaire.bascuguin@mobilecareph.com', '$2y$10$jvQDjuQaNVfg67cs1IlBUezAMExD6Mbn5hgahXrYHLukEmAVc18.6', 'super_admin', 'active', '2026-02-10 19:52:51', 'Northeast Square', 'Manager', NULL),
-(10, 'Paul Angelo Revilla', 'paulangelorevilla@mobilecareph.com', '$2y$10$fvjLBHb9wBtTMuaU5S4qUeIUIMigt.wnU4fZYLXhc4XejujsiFM6G', 'user', 'active', '2026-02-10 19:53:58', 'The Podium', 'Supervisor', NULL),
+(10, 'Paul Angelo Revilla', 'paulangelorevilla@mobilecareph.com', '$2y$10$fvjLBHb9wBtTMuaU5S4qUeIUIMigt.wnU4fZYLXhc4XejujsiFM6G', 'admin', 'active', '2026-02-10 19:53:58', 'The Podium', 'Supervisor', NULL),
 (11, 'Raul Thomas Cloma', 'raulthomas.cloma@mobilecareph.com', '$2y$10$rWOhFjwoT4Uz/QloRDDFgeca8JbcN1BOu/V1t4X5NYaOlO.mUqWIy', 'admin', 'active', '2026-02-10 21:01:14', 'APP GREENBELT 3', 'Engineer', NULL),
 (13, 'John Nitimari Espiritu', 'johnnitimari.espiritu@mobilecareph.com', '$2y$10$aL3lfG3rdICFZoTp3qzPk.4TFKQjuJyg12Pz7a0.uZY0JjKc7diOW', 'admin', 'active', '2026-02-10 21:08:13', 'APP POWER PLANT MALL', 'Engineer', NULL),
 (14, 'Cassandra Aila De Gala', 'cassandraaila.degala@mobilecareph.com', '$2y$10$YUahQiUQTGs0IYKpmrzD4OPpHPLk.6mkyGNzhohXNtXfjtLh58PQa', 'admin', 'active', '2026-02-10 21:08:52', 'GLORIETTA 5', 'Engineer', NULL),
@@ -253,8 +287,9 @@ INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `status`, `creat
 (30, 'Macrine Jane Gaculais', 'macrinejane.gaculais@mobilecareph.com', '$2y$10$pcadRihK0aI/oNHea9mKVO643iIzVIVA/5Jgs2SzIbqH3Z322pjv2', 'admin', 'active', '2026-02-10 21:19:53', 'APP FESTIVAL MALL', 'Engineer', NULL),
 (31, 'Sharmaine Espejo', 'sharmaine.espejo@mobilecareph.com', '$2y$10$yj17.Avwf964Qcqnkp4FuugBGLLB4BAufjHAR8akdZ8L/wSuwX/S2', 'admin', 'active', '2026-02-10 21:20:29', 'LIMA ESTATE', 'Engineer', NULL),
 (32, 'Alexander Losaynon', 'alexanderlosaynonII@gmail.com', '$2y$10$DpMYtYxfFl.ekBp4EYBXCOqucPXnKQELy.YVvNjSuaKg6XVpC9SKC', 'admin', 'active', '2026-02-15 02:28:05', 'The Podium', 'Engineer', NULL),
-(33, 'Jhustine jae', 'JHUSTINE041@GMAIL.COM', '$2y$10$HT2b1hBK42lu9SZunA0OruIqRUqXrdXhavahz/GkM6ZOai.TfAUya', 'user', 'active', '2026-02-15 04:39:58', 'The Podium', 'Engineer', NULL),
-(34, 'Jasmil Rose Guban', 'jasmilrose.guban@mobilecareph.com', '$2y$10$i5Mx6WGYC2cl8msS1104yekWUFaBQcXINcUj8C22WFjaW96u8DJkO', 'user', 'active', '2026-02-15 04:45:46', 'The Podium', 'Engineer', NULL);
+(33, 'Jhustine jae', 'JHUSTINE041@GMAIL.COM', '$2y$10$HT2b1hBK42lu9SZunA0OruIqRUqXrdXhavahz/GkM6ZOai.TfAUya', 'admin', 'active', '2026-02-15 04:39:58', 'The Podium', 'Engineer', NULL),
+(34, 'Jasmil Rose Guban', 'jasmilrose.guban@mobilecareph.com', '$2y$10$i5Mx6WGYC2cl8msS1104yekWUFaBQcXINcUj8C22WFjaW96u8DJkO', 'user', 'active', '2026-02-15 04:45:46', 'The Podium', 'Engineer', NULL),
+(35, 'sample', 'a@gmail.com', '$2y$10$u4KKWkdLpSLSFtxXSNS/tOdgNfMCsoGP2zU/a2R3E2pLuXW54IbwK', 'user', 'active', '2026-02-16 10:01:25', 'The Podium', 'Engineer', NULL);
 
 --
 -- Indexes for dumped tables
@@ -279,6 +314,13 @@ ALTER TABLE `chats`
 --
 ALTER TABLE `engineer_schedule`
   ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `engineer_tally_adjustments`
+--
+ALTER TABLE `engineer_tally_adjustments`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `engineer_id` (`engineer_id`,`category`);
 
 --
 -- Indexes for table `escalations`
@@ -335,6 +377,12 @@ ALTER TABLE `engineer_schedule`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `engineer_tally_adjustments`
+--
+ALTER TABLE `engineer_tally_adjustments`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `escalations`
 --
 ALTER TABLE `escalations`
@@ -344,7 +392,7 @@ ALTER TABLE `escalations`
 -- AUTO_INCREMENT for table `frontline`
 --
 ALTER TABLE `frontline`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
 
 --
 -- AUTO_INCREMENT for table `inventory`
@@ -362,7 +410,7 @@ ALTER TABLE `notifications`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
 
 --
 -- Constraints for dumped tables
